@@ -1,30 +1,19 @@
 # OOPS-Monolithic
 
-This repository contains two independent examples of modular-monolith organization:
+A Python project demonstrating object-oriented programming through a modular Student Management System.
 
-1. **OOP Student Management System** — a Python OOP learning project that splits a single-file student example into domain models, a service layer, a runnable entry point, tests, and architecture notes.
-2. **AgriN Connect FastAPI backend** — the existing API project under `app/`, retained without being overwritten.
+## Features and OOP concepts
 
-## OOP Student Management System
+- **Abstraction:** abstract `Person` base class.
+- **Encapsulation:** private student marks with validated getter/setter methods.
+- **Inheritance:** `Student` extends `Person`; `GraduateStudent` extends `Student`.
+- **Polymorphism:** graduate students override `display_details()` and `calculate_grade()`.
+- **Operator overloading:** `+` combines the marks of two students.
+- **Class method:** updates the college name for the class.
+- **Static method:** checks whether an age represents an adult.
+- **Modular organization:** domain models, service logic, entry point, and tests are separated.
 
-The OOP example is in [`oops_student_manager/`](oops_student_manager/README.md). It demonstrates abstraction, encapsulation, inheritance, polymorphism, operator overloading, class methods, and static methods.
-
-Run the demonstration from the repository root:
-
-```bash
-python -m oops_student_manager.main
-```
-
-Run its tests:
-
-```bash
-pip install -r requirements-dev.txt
-python -m pytest tests/test_oops_student_manager.py -q
-```
-
-See [`OOPS_ARCHITECTURE.md`](OOPS_ARCHITECTURE.md) for the package diagram, responsibilities, and execution flow.
-
-### OOP package layout
+## Project structure
 
 ```text
 oops_student_manager/
@@ -37,30 +26,30 @@ oops_student_manager/
     └── student_service.py
 tests/
 └── test_oops_student_manager.py
+OOPS_ARCHITECTURE.md
 ```
 
-## Existing AgriN Connect API
+## Run the application
 
-The existing FastAPI backend remains under `app/`. Its API setup and run instructions are documented in [`AGRI` README history?](ARCHITECTURE.md).
-
-Run it from the repository root:
+Python 3.10 or newer is recommended. From the repository root:
 
 ```bash
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m oops_student_manager.main
 ```
 
-API documentation: http://127.0.0.1:8000/docs
+No third-party dependency is required to run the example.
 
-The OOP package and FastAPI API have separate entry points. The OOP demo does not import or depend on the FastAPI application.
+## Run tests
 
-## Test suite
-
-Run all tests:
+Install the development dependency and execute the tests:
 
 ```bash
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-The full suite includes both the existing API tests and the OOP student-management tests.
+## Architecture
+
+See [OOPS_ARCHITECTURE.md](OOPS_ARCHITECTURE.md) for the component diagram, module responsibilities, execution flow, and design decisions.
+
+The models own domain behaviour and validation. `StudentService` manages an in-memory collection of students. `main.py` wires the components together and demonstrates the concepts. Everything runs in one Python process; this is a modular monolith, not a microservices architecture.
