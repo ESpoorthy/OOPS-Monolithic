@@ -83,6 +83,7 @@ def get_student(
 
 
 @router.patch("/{roll_no}/marks", response_model=StudentResponse)
+@router.put("/{roll_no}/marks", response_model=StudentResponse)
 def update_student_marks(
     roll_no: int,
     payload: StudentMarksUpdate,
