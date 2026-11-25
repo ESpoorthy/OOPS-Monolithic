@@ -1,16 +1,4 @@
-"""Crop suitability and regenerative action business logic."""
-
-
-def regenerative_actions(soil_type: str, water: str) -> list[dict]:
-    actions = [
-        {"action": "Keep living roots", "why": "Use a legume cover crop after harvest to protect soil carbon and fix nitrogen.", "impact": "Builds soil organic matter"},
-        {"action": "Minimise disturbance", "why": "Use strip or reduced tillage where practical to retain moisture and soil structure.", "impact": "Improves water infiltration"},
-    ]
-    if water == "low":
-        actions.insert(0, {"action": "Mulch crop residues", "why": "A 5–7 cm residue cover reduces evaporation and suppresses weeds.", "impact": "Saves irrigation water"})
-    if soil_type == "clay":
-        actions.append({"action": "Avoid field traffic after rain", "why": "Reducing compaction protects root channels and drainage in heavy soils.", "impact": "Protects soil structure"})
-    return actions
+"""Crop suitability and recommendation business logic."""
 
 
 def crop_catalogue(season: str, water: str, soil: str) -> list[dict]:
@@ -33,7 +21,11 @@ def crop_catalogue(season: str, water: str, soil: str) -> list[dict]:
     }
     soil_bonus = 0.3 if soil == "loamy" else 0.1
     return [
-        {"crop": crop, "score": min(round(score + soil_bonus, 1), 10), "rationale": rationale,
-         "regenerative_fit": "High" if score >= 8.8 else "Good"}
+        {
+            "crop": crop,
+            "score": min(round(score + soil_bonus, 1), 10),
+            "rationale": rationale,
+            "regenerative_fit": "High" if score >= 8.8 else "Good",
+        }
         for crop, score, rationale in options[season][water]
     ]
