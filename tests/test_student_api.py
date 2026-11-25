@@ -134,3 +134,36 @@ def test_student_data_survives_new_request_session(client):
     assert client.post("/students", json=payload).status_code == 201
     # A separate HTTP request receives a fresh SQLAlchemy session.
     assert client.get("/students/777").json()["name"] == "Persistent Student"
+
+
+def test_put_updates_marks(client):
+    payload = {
+        "name": "Put Method Student",
+        "age": 20,
+        "roll_no": 901,
+        "branch": "CSE",
+        "marks": 70,
+    }
+    assert client.post("/students", json=payload).status_code == 201
+    response = client.put("/students/901/marks", json={"marks": 94})
+    assert response.status_code == 200
+    assert response.json()["marks"] == 94
+
+
+def test_sql_injection_like_input_is_stored_as_plain_text(client):
+    suspicious_name = "Robert'); DROP TABLE students;--"
+    payload = {
+        "name": suspicious_name,
+        "age": 20,
+        "roll_no": 902,
+        "branch": "CSE",
+        "marks": 85,
+    }
+    created = client.post("/students", json=payload)
+    assert created.status_code == 201
+    assert created.json()["name"] == suspicious_name
+
+    fetched = client.get("/students/902")
+    assert fetched.status_code == 200
+    assert fetched.json()["name"] == suspicious_name
+    assert client.get("/students").status_code == 200
