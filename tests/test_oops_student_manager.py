@@ -1,12 +1,28 @@
 """Tests for the OOP Student Management package."""
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from oops_student_manager.database import Base
 from oops_student_manager.models import GraduateStudent, Person, Student
 from oops_student_manager.services import StudentService
 
 
 def make_student(roll_no: int = 1, marks: float = 85) -> Student:
     return Student("Asha", 20, roll_no, "CSE", marks)
+
+
+@pytest.fixture
+def service():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    yield StudentService(db)
+    db.close()
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 def test_person_is_abstract():
@@ -45,19 +61,18 @@ def test_class_and_static_methods():
         Student.college_name = original
 
 
-def test_service_add_get_update_remove():
-    service = StudentService()
+def test_service_add_get_update_remove(service):
     student = make_student()
     service.add_student(student)
-    assert service.get_student(1) is student
+    assert service.get_student(1).name == "Asha"
     service.update_marks(1, 91)
     assert service.get_student(1).get_marks() == 91
-    assert service.remove_student(1) is student
+    assert service.remove_student(1).roll_no == 1
     assert service.list_students() == []
 
 
-def test_service_rejects_duplicate_roll_number():
-    service = StudentService([make_student()])
+def test_service_rejects_duplicate_roll_number(service):
+    service.add_student(make_student())
     with pytest.raises(ValueError):
         service.add_student(make_student())
 
