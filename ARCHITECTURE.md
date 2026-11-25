@@ -13,7 +13,7 @@ The implementation follows a **modular monolith**:
 - One FastAPI application is created in `app/main.py`.
 - Feature routers are registered on that application.
 - Routes call service functions directly through Python imports.
-- Services contain business logic and do not call one another over HTTP.
+- Services contain business logic and compose other services through normal function calls when needed.
 - Pydantic schemas validate request payloads.
 - All modules run in the same Python process and are released together.
 
@@ -39,6 +39,7 @@ flowchart TB
     Calendar --> CalendarSvc[Calendar Service]
     Advisory --> AdvisorySvc[Advisory Service]
 
+    FieldSvc --> AdvisorySvc
     CropSvc --> Shared[Shared in-process resources]
     FieldSvc --> Shared
     DiseaseSvc --> Shared
@@ -57,24 +58,27 @@ flowchart TB
 
 ## 5. Feature ownership
 
-| Feature | Route | Service | Schema |
+| Feature | Route module | Service module | Schema |
 | --- | --- | --- | --- |
 | Health | `health_routes.py` | — | — |
 | Crop recommendations | `crop_routes.py` | `crop_service.py` | `crop_schema.py` |
 | Field intelligence | `field_routes.py` | `field_service.py` | `field_schema.py` |
+| Regenerative actions | Composed into field-intelligence response | `advisory_service.py` | — |
 | Disease classification | `disease_routes.py` | `disease_service.py` | `disease_schema.py` |
 | Market context | `market_routes.py` | `market_service.py` | `market_schema.py` |
 | Farmer calendar | `calendar_routes.py` | `calendar_service.py` | `calendar_schema.py` |
 | Cooperation model card | `advisory_routes.py` | `advisory_service.py` | — |
+
+The field service composes regenerative actions by calling `advisory_service.regenerative_actions()` directly in-process. This is an ordinary Python function call, not an HTTP request to another service.
 
 ## 6. Request lifecycle
 
 1. A client sends an HTTP request to the FastAPI application.
 2. FastAPI dispatches the request to the matching feature router.
 3. Pydantic validates a JSON payload when the endpoint uses a request schema.
-4. The route invokes a service function directly.
-5. The service performs the required logic and returns Python data.
-6. FastAPI serializes the result and sends the HTTP response.
+4. The route invokes a function in the corresponding service module.
+5. A service may call another service function directly when responsibilities need to be composed.
+6. FastAPI serializes the returned data and sends the HTTP response.
 
 The route layer remains intentionally thin: it coordinates HTTP concerns, while service modules own business logic.
 
@@ -82,7 +86,7 @@ The route layer remains intentionally thin: it coordinates HTTP concerns, while 
 
 The disease service validates upload type, size and image bytes. It then loads the trained PyTorch/timm model lazily, caching the loaded model and transform in process memory. It performs crop-scoped inference and applies the confidence threshold.
 
-The checkpoint is not bundled by default because it is a binary model asset. Place the approved file at `app/models/agrismart-field-model.pt` to enable inference. If the checkpoint or required ML dependencies are missing, the endpoint responds with HTTP 503 rather than returning a fabricated prediction.
+The checkpoint is not bundled by default because it is a binary model asset. The original AgriN Connect repository contains the checkpoint at `farmer-backend/models/agrismart-field-model.pt`. Copy the approved file to `app/models/agrismart-field-model.pt` to enable inference. If the checkpoint or required ML dependencies are missing, the endpoint responds with HTTP 503 rather than returning a fabricated prediction.
 
 ## 8. API surface
 
