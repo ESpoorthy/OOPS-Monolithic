@@ -1,6 +1,10 @@
+from io import BytesIO
+
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.main import app
+from app.services import disease_service
 
 client = TestClient(app)
 
@@ -97,3 +101,29 @@ def test_disease_upload_rejects_invalid_image_bytes():
         files={"file": ("leaf.jpg", b"not-an-image", "image/jpeg")},
     )
     assert response.status_code == 400
+
+
+def test_disease_upload_rejects_unsupported_crop():
+    response = client.post(
+        "/upload_image",
+        data={"crop": "corn"},
+        files={"file": ("leaf.png", b"placeholder", "image/png")},
+    )
+    assert response.status_code == 422
+
+
+def test_disease_model_unavailable_returns_503(monkeypatch):
+    def unavailable_model():
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr(disease_service, "load_disease_model", unavailable_model)
+    image_buffer = BytesIO()
+    Image.new("RGB", (4, 4), color="green").save(image_buffer, format="PNG")
+
+    response = client.post(
+        "/upload_image",
+        data={"crop": "tomato"},
+        files={"file": ("leaf.png", image_buffer.getvalue(), "image/png")},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Disease model is temporarily unavailable."
