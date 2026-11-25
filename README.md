@@ -3,7 +3,7 @@
 A Python OOP Student Management System with a FastAPI REST backend and SQLite persistence. The project separates HTTP routing, application services, SQLAlchemy persistence, and OOP domain models in one modular monolith.
 
 ## Features
-- Create, list, retrieve, update marks, and delete students through REST endpoints.
+- Create, list, retrieve, update marks with PATCH or PUT, and delete students through REST endpoints.
 - Create regular and graduate students.
 - Persist records in the local SQLite database file students.db.
 - Use SQLAlchemy ORM to map database rows to Python objects.
@@ -43,7 +43,7 @@ The default SQLAlchemy URL is sqlite:///./students.db. Set the DATABASE_URL envi
 | POST | /students | Create a student |
 | GET | /students | List students |
 | GET | /students/{roll_no} | Get one student |
-| PATCH | /students/{roll_no}/marks | Update marks |
+| PATCH | /students/{roll_no}/marks | Partially update marks |\n| PUT | /students/{roll_no}/marks | Update marks (same operation) |
 | DELETE | /students/{roll_no} | Delete a student |
 
 ## Tests
