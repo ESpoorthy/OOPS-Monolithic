@@ -1,4 +1,4 @@
-name: Backend Tests
+name: OOP Student Management Tests
 
 on:
   push:
@@ -19,5 +19,5 @@ jobs:
           cache: pip
       - name: Install test dependencies
         run: pip install -r requirements-dev.txt
-      - name: Run complete test suite
+      - name: Run OOP tests
         run: pytest -q
