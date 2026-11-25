@@ -1,19 +1,37 @@
-"""Integration tests for the FastAPI student endpoints."""
+"""Integration tests for the FastAPI student endpoints using isolated SQLite."""
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from oops_student_manager.api import app
-from oops_student_manager.routes.student_routes import get_student_service
-from oops_student_manager.services import StudentService
+from oops_student_manager.database import Base, get_db
 
 
 @pytest.fixture
 def client():
-    service = StudentService()
-    app.dependency_overrides[get_student_service] = lambda: service
+    test_engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(bind=test_engine, autoflush=False, autocommit=False)
+    Base.metadata.create_all(bind=test_engine)
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=test_engine)
+    test_engine.dispose()
 
 
 def test_root_and_health(client):
@@ -103,3 +121,16 @@ def test_graduate_requires_specialization(client):
         },
     )
     assert response.status_code == 422
+
+
+def test_student_data_survives_new_request_session(client):
+    payload = {
+        "name": "Persistent Student",
+        "age": 20,
+        "roll_no": 777,
+        "branch": "CSE",
+        "marks": 88,
+    }
+    assert client.post("/students", json=payload).status_code == 201
+    # A separate HTTP request receives a fresh SQLAlchemy session.
+    assert client.get("/students/777").json()["name"] == "Persistent Student"
