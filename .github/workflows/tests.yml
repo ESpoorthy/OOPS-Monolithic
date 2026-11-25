@@ -19,5 +19,5 @@ jobs:
           cache: pip
       - name: Install test dependencies
         run: pip install -r requirements-dev.txt
-      - name: Run API tests
+      - name: Run complete test suite
         run: pytest -q
