@@ -82,3 +82,29 @@ def test_student_validates_constructor_fields():
         Student("Asha", 20, 0, "CSE", 80)
     with pytest.raises(ValueError):
         Student("Asha", 20, 3, "CSE", 101)
+
+
+def test_sqlite_data_survives_engine_restart(tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from oops_student_manager.database import Base
+    from oops_student_manager.services import StudentService
+
+    database_file = tmp_path / "persistence_test.db"
+    database_url = f"sqlite:///{database_file}"
+
+    first_engine = create_engine(database_url)
+    Base.metadata.create_all(bind=first_engine)
+    FirstSession = sessionmaker(bind=first_engine)
+    with FirstSession() as first_db:
+        StudentService(first_db).add_student(make_student(roll_no=987, marks=89))
+    first_engine.dispose()
+
+    second_engine = create_engine(database_url)
+    SecondSession = sessionmaker(bind=second_engine)
+    with SecondSession() as second_db:
+        restored = StudentService(second_db).get_student(987)
+        assert restored.name == "Asha"
+        assert restored.get_marks() == 89
+    second_engine.dispose()
