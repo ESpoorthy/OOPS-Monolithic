@@ -1,93 +1,80 @@
-# OOP Student Management System — Modular Monolith with FastAPI
+# OOP Student Management System — FastAPI + SQLAlchemy + SQLite
 
-## 1. Overview
+## Overview
 
-The application combines an object-oriented Student Management domain with a FastAPI REST interface. It is a **modular monolith**: routes, services, and models are cohesive modules inside one Python application and one deployment unit. Modules communicate through normal Python imports and function calls, not internal HTTP calls.
+The application combines an object-oriented Student Management domain with a FastAPI REST interface and persistent SQL storage. It is a modular monolith: routes, services, persistence, and domain models run in one Python application.
 
-## 2. Architecture
+## Architecture
 
-```mermaid
-flowchart TB
-    Client[HTTP Client / Swagger UI] --> API[FastAPI Application]
-    API --> Routes[Student Routes]
-    Routes --> Schemas[Pydantic Schemas]
-    Routes --> Service[StudentService]
-    Service --> Models[Domain Models]
-    Models --> Person[Abstract Person]
-    Models --> Student[Student]
-    Models --> Graduate[GraduateStudent]
-    Student --> Person
-    Graduate --> Student
-```
+    Swagger UI / HTTP Client
+             |
+         FastAPI app
+             |
+       Student Routes ---- Pydantic Schemas
+             |
+       StudentService
+          /       \
+   OOP Domain    SQLAlchemy ORM
+    Models            |
+                 SQLite students.db
 
-## 3. Layer responsibilities
+## Layer responsibilities
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| API application | `oops_student_manager/api.py` | Creates FastAPI app, includes routers, exposes health endpoints |
-| Routes | `oops_student_manager/routes/student_routes.py` | HTTP methods, status codes, dependency injection, exception translation |
-| Schemas | `oops_student_manager/schemas/student_schema.py` | Validates request payloads and documents response shape |
-| Services | `oops_student_manager/services/student_service.py` | Manages the in-memory collection and student operations |
-| Domain models | `oops_student_manager/models/` | OOP state, validation, grading, and behaviour |
-| Console demo | `oops_student_manager/main.py` | Runs the standalone OOP demonstration |
-| Tests | `tests/` | Tests domain logic, service operations, and HTTP endpoints |
+| API | oops_student_manager/api.py | Creates FastAPI app and includes routers |
+| Routes | routes/student_routes.py | HTTP methods, status codes, dependency injection |
+| Schemas | schemas/student_schema.py | Validates request and response data |
+| Services | services/student_service.py | Coordinates database operations and OOP objects |
+| Database | database.py | SQLAlchemy engine, Base, and request-scoped sessions |
+| ORM model | db_models.py | Maps the students table to Python attributes |
+| Domain models | models/ | OOP state, validation, grading, and behaviour |
 
-## 4. OOP principles
+## OOP principles
 
-- **Abstraction:** `Person` is an abstract base class requiring `display_details()`.
-- **Encapsulation:** marks are stored in the private attribute `Student.__marks`; changes use the validated setter.
-- **Inheritance:** `Student` extends `Person`; `GraduateStudent` extends `Student`.
-- **Polymorphism:** `GraduateStudent` overrides `display_details()` and `calculate_grade()`.
-- **Operator overloading:** adding two student objects returns the sum of their marks.
-- **Class method:** `change_college()` updates the college name at class level.
-- **Static method:** `is_adult()` evaluates an age without requiring an object.
+- Abstraction: Person is an abstract base class.
+- Encapsulation: Student marks are private and updated through a validated setter.
+- Inheritance: Student extends Person; GraduateStudent extends Student.
+- Polymorphism: GraduateStudent overrides display_details() and calculate_grade().
+- Operator overloading: adding two Student objects returns the sum of their marks.
+- Class method: change_college() updates the college name at class level.
+- Static method: is_adult() evaluates an age without requiring an object.
 
-## 5. HTTP request lifecycle
+## Request lifecycle
 
-1. A client calls an endpoint, for example `POST /students`.
-2. FastAPI parses the JSON request and validates it against `StudentCreate`.
-3. The route receives a `StudentService` dependency.
-4. The route constructs either a `Student` or `GraduateStudent` domain object.
-5. The service stores that object by roll number.
-6. The route maps the domain object to `StudentResponse`.
-7. FastAPI serializes the response as JSON.
+1. A client calls an endpoint such as POST /students.
+2. FastAPI validates the JSON against StudentCreate.
+3. FastAPI injects a request-scoped SQLAlchemy session through get_db().
+4. The route constructs a Student or GraduateStudent domain object.
+5. StudentService maps the domain object to a StudentRecord ORM row.
+6. SQLAlchemy commits the row to the SQLite students table.
+7. The route returns a JSON StudentResponse.
+8. The request-scoped database session is closed.
 
-For marks updates, the route delegates to `StudentService.update_marks()`, which calls the model's validated `set_marks()` method. The API therefore does not bypass encapsulation.
+For marks updates, the service calls the OOP model's validated set_marks() method before persisting the new value.
 
-## 6. API surface
+## Storage
+
+The default database URL is sqlite:///./students.db. The database file is created automatically. Records survive application restarts. Set DATABASE_URL to use another SQLAlchemy-supported database.
+
+The OOP domain classes remain separate from SQLAlchemy ORM classes: Student and GraduateStudent express business behaviour, while StudentRecord represents persisted rows.
+
+## API surface
 
 | Method | Path | Result |
 |---|---|---|
-| GET | `/` | Welcome message |
-| GET | `/health` | Health status |
-| POST | `/students` | Create a student (201); duplicate roll number returns 409 |
-| GET | `/students` | List students |
-| GET | `/students/{roll_no}` | Read one student (404 when absent) |
-| PATCH | `/students/{roll_no}/marks` | Update marks after validation |
-| DELETE | `/students/{roll_no}` | Remove and return a student |
+| GET | / | Welcome message |
+| GET | /health | Health status |
+| POST | /students | Create student; duplicate roll number returns 409 |
+| GET | /students | List students |
+| GET | /students/{roll_no} | Read one student; 404 when absent |
+| PATCH | /students/{roll_no}/marks | Update marks after validation |
+| DELETE | /students/{roll_no} | Remove and return a student |
 
-FastAPI's interactive API documentation is available at `/docs`.
+## Run and test
 
-## 7. Data storage and limitations
+    python -m pip install -r requirements-dev.txt
+    uvicorn oops_student_manager.api:app --reload
+    python -m pytest -q
 
-The service currently stores student objects in a Python dictionary in process memory. This keeps the project focused on OOP and API layering. The data is reset when the application restarts and is not shared across multiple worker processes. A future database repository can replace the in-memory storage behind the service boundary.
-
-## 8. Run and test
-
-Start the API:
-
-```bash
-uvicorn oops_student_manager.api:app --reload
-```
-
-Run the console demonstration:
-
-```bash
-python -m oops_student_manager.main
-```
-
-Run the test suite:
-
-```bash
-python -m pytest -q
-```
+Tests use isolated in-memory SQLite databases and do not write to the developer's local database file.
