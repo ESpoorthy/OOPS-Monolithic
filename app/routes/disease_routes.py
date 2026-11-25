@@ -1,12 +1,17 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+
 from app.config import ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES
+from app.schemas.disease_schema import SupportedCrop
 from app.services.disease_service import classify_leaf
 
 router = APIRouter()
 
 
 @router.post("/upload_image")
-async def upload_image(file: UploadFile | None = File(default=None), crop: str = Form(...)):
+async def upload_image(
+    file: UploadFile | None = File(default=None),
+    crop: SupportedCrop = Form(...),
+):
     if file is None:
         raise HTTPException(status_code=400, detail="Select a plant image before analysis.")
     if file.content_type not in ALLOWED_IMAGE_TYPES:
