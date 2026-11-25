@@ -1,15 +1,17 @@
-# OOP Student Management — Modular Monolith
+# OOP Student Management System — Modular Monolith with FastAPI
 
-## Goal
+## 1. Overview
 
-This package takes the single-file OOP Student Management example and separates it into cohesive Python modules. It is a **modular monolith**: the components run in one Python process and call each other through normal Python imports and method calls. It is not a microservices system.
+The application combines an object-oriented Student Management domain with a FastAPI REST interface. It is a **modular monolith**: routes, services, and models are cohesive modules inside one Python application and one deployment unit. Modules communicate through normal Python imports and function calls, not internal HTTP calls.
 
-## Component view
+## 2. Architecture
 
 ```mermaid
 flowchart TB
-    User[User / Demo Runner] --> Main[oops_student_manager/main.py]
-    Main --> Service[StudentService]
+    Client[HTTP Client / Swagger UI] --> API[FastAPI Application]
+    API --> Routes[Student Routes]
+    Routes --> Schemas[Pydantic Schemas]
+    Routes --> Service[StudentService]
     Service --> Models[Domain Models]
     Models --> Person[Abstract Person]
     Models --> Student[Student]
@@ -18,39 +20,74 @@ flowchart TB
     Graduate --> Student
 ```
 
-## Responsibilities
+## 3. Layer responsibilities
 
-| Component | Responsibility |
-|---|---|
-| `main.py` | Composition root and runnable demonstration |
-| `models/person.py` | Abstract person contract and common identity validation |
-| `models/student.py` | Student state, marks encapsulation, grading, and OOP methods |
-| `models/graduate_student.py` | Graduate-specific data and overridden behaviour |
-| `services/student_service.py` | Add, find, list, update, and remove students |
-| `tests/` | Behaviour and validation checks |
+| Layer | Module | Responsibility |
+|---|---|---|
+| API application | `oops_student_manager/api.py` | Creates FastAPI app, includes routers, exposes health endpoints |
+| Routes | `oops_student_manager/routes/student_routes.py` | HTTP methods, status codes, dependency injection, exception translation |
+| Schemas | `oops_student_manager/schemas/student_schema.py` | Validates request payloads and documents response shape |
+| Services | `oops_student_manager/services/student_service.py` | Manages the in-memory collection and student operations |
+| Domain models | `oops_student_manager/models/` | OOP state, validation, grading, and behaviour |
+| Console demo | `oops_student_manager/main.py` | Runs the standalone OOP demonstration |
+| Tests | `tests/` | Tests domain logic, service operations, and HTTP endpoints |
 
-## Important design decisions
+## 4. OOP principles
 
-1. The model owns its invariants: marks are private and every write passes through validation.
-2. The service owns collection operations and rejects duplicate roll numbers.
-3. The service stores objects in memory to keep this educational example focused. A repository/database adapter can be added later without moving domain behaviour into the UI.
-4. `main.py` creates dependencies and demonstrates behaviour; it does not contain the model implementation.
-5. The package reuses the original OOP learning goals: abstraction, encapsulation, inheritance, polymorphism, operator overloading, class methods, and static methods.
+- **Abstraction:** `Person` is an abstract base class requiring `display_details()`.
+- **Encapsulation:** marks are stored in the private attribute `Student.__marks`; changes use the validated setter.
+- **Inheritance:** `Student` extends `Person`; `GraduateStudent` extends `Student`.
+- **Polymorphism:** `GraduateStudent` overrides `display_details()` and `calculate_grade()`.
+- **Operator overloading:** adding two student objects returns the sum of their marks.
+- **Class method:** `change_college()` updates the college name at class level.
+- **Static method:** `is_adult()` evaluates an age without requiring an object.
 
-## Execution flow
+## 5. HTTP request lifecycle
 
-1. The demo creates a `StudentService`.
-2. It constructs `Student` and `GraduateStudent` objects.
-3. The service stores the objects by roll number.
-4. The demo updates marks through the service, which delegates to the model's validated setter.
-5. The demo uses overloaded addition to combine marks.
-6. The demo iterates over student objects and calls the same method name, allowing Python's dynamic dispatch to select the graduate override where applicable.
+1. A client calls an endpoint, for example `POST /students`.
+2. FastAPI parses the JSON request and validates it against `StudentCreate`.
+3. The route receives a `StudentService` dependency.
+4. The route constructs either a `Student` or `GraduateStudent` domain object.
+5. The service stores that object by roll number.
+6. The route maps the domain object to `StudentResponse`.
+7. FastAPI serializes the response as JSON.
 
-## Run and test
+For marks updates, the route delegates to `StudentService.update_marks()`, which calls the model's validated `set_marks()` method. The API therefore does not bypass encapsulation.
+
+## 6. API surface
+
+| Method | Path | Result |
+|---|---|---|
+| GET | `/` | Welcome message |
+| GET | `/health` | Health status |
+| POST | `/students` | Create a student (201); duplicate roll number returns 409 |
+| GET | `/students` | List students |
+| GET | `/students/{roll_no}` | Read one student (404 when absent) |
+| PATCH | `/students/{roll_no}/marks` | Update marks after validation |
+| DELETE | `/students/{roll_no}` | Remove and return a student |
+
+FastAPI's interactive API documentation is available at `/docs`.
+
+## 7. Data storage and limitations
+
+The service currently stores student objects in a Python dictionary in process memory. This keeps the project focused on OOP and API layering. The data is reset when the application restarts and is not shared across multiple worker processes. A future database repository can replace the in-memory storage behind the service boundary.
+
+## 8. Run and test
+
+Start the API:
+
+```bash
+uvicorn oops_student_manager.api:app --reload
+```
+
+Run the console demonstration:
 
 ```bash
 python -m oops_student_manager.main
-python -m pytest tests/test_oops_student_manager.py -q
 ```
 
-The OOP package is independent of the repository's existing AgriN FastAPI application. Both can coexist in one repository but have separate entry points and responsibilities.
+Run the test suite:
+
+```bash
+python -m pytest -q
+```

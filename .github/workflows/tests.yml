@@ -1,4 +1,4 @@
-name: OOP Student Management Tests
+name: OOP Student Management API Tests
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install test dependencies
+      - name: Install dependencies
         run: pip install -r requirements-dev.txt
-      - name: Run OOP tests
-        run: pytest -q
+      - name: Run model, service, and API tests
+        run: python -m pytest -q
