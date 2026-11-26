@@ -1,11 +1,11 @@
 # OOPS-Monolithic
 
-A Python OOP Student Management System with a FastAPI REST backend and SQLite persistence. The project separates HTTP routing, application services, SQLAlchemy persistence, and OOP domain models in one modular monolith.
+A Python OOP Student Management System with a FastAPI REST backend and SQLAlchemy persistence. PostgreSQL is supported as the production database, while SQLite remains available as a lightweight local-development fallback. The project separates HTTP routing, application services, SQLAlchemy persistence, and OOP domain models in one modular monolith.
 
 ## Features
 - Create, list, retrieve, update marks with PATCH or PUT, and delete students through REST endpoints.
 - Create regular and graduate students.
-- Persist records in the local SQLite database file students.db.
+- Persist records using SQLAlchemy with PostgreSQL or SQLite.
 - Use SQLAlchemy ORM to map database rows to Python objects.
 - Demonstrate abstraction, encapsulation, inheritance, polymorphism, and operator overloading.
 
@@ -21,18 +21,39 @@ A Python OOP Student Management System with a FastAPI REST backend and SQLite pe
       services/         # Business operations and persistence coordination
     tests/
 
-## Run
+## Install and run
 
     python -m venv .venv
     source .venv/bin/activate
     python -m pip install -r requirements-dev.txt
+
+### Use PostgreSQL
+
+Create a PostgreSQL database (for example, `student_management`) and set the connection URL before starting the API.
+
+macOS/Linux:
+
+    export DATABASE_URL="postgresql+psycopg://postgres:YOUR_PASSWORD@localhost:5432/student_management"
+
+PowerShell:
+
+    $env:DATABASE_URL = "postgresql+psycopg://postgres:YOUR_PASSWORD@localhost:5432/student_management"
+
+Then run:
+
     uvicorn oops_student_manager.api:app --reload
 
-The application creates students.db automatically. Records remain available after the server restarts. Open http://127.0.0.1:8000/docs for Swagger UI.
+The application creates missing tables the first time the database is accessed. Keep database credentials in environment variables or a local, untracked `.env` file; never commit secrets.
+
+### Use SQLite for quick local development
+
+If `DATABASE_URL` is not set, the application uses `sqlite:///./students.db`.
+
+Open http://127.0.0.1:8000/docs for Swagger UI.
 
 ## Database configuration
 
-The default SQLAlchemy URL is sqlite:///./students.db. Set the DATABASE_URL environment variable before starting the API to use another SQLAlchemy-supported database. Keep database credentials out of source control.
+The `DATABASE_URL` environment variable selects the database. PostgreSQL URLs using `postgresql://` or `postgres://` are normalized to the psycopg 3 driver. SQLite remains the fallback for local development. For production deployments, use a managed PostgreSQL database and a migration tool such as Alembic when schema changes need to be versioned.
 
 ## API endpoints
 
@@ -43,13 +64,14 @@ The default SQLAlchemy URL is sqlite:///./students.db. Set the DATABASE_URL envi
 | POST | /students | Create a student |
 | GET | /students | List students |
 | GET | /students/{roll_no} | Get one student |
-| PATCH | /students/{roll_no}/marks | Partially update marks |\n| PUT | /students/{roll_no}/marks | Update marks (same operation) |
+| PATCH | /students/{roll_no}/marks | Partially update marks |
+| PUT | /students/{roll_no}/marks | Update marks (same operation) |
 | DELETE | /students/{roll_no} | Delete a student |
 
 ## Tests
 
     python -m pytest -q
 
-Tests use isolated in-memory SQLite databases and do not modify your local students.db file.
+Tests use the PostgreSQL service in GitHub Actions. Locally, they use isolated in-memory SQLite unless `TEST_DATABASE_URL` is set to a PostgreSQL test database. Tests create and drop their own tables; do not point `TEST_DATABASE_URL` at a database containing data you need to keep.
 
 See OOPS_ARCHITECTURE.md for the architecture and request flow.
