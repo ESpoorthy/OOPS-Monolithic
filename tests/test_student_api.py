@@ -1,5 +1,6 @@
-"""Integration tests for the FastAPI student endpoints using isolated SQLite."""
-import pytest
+"""Integration tests for the FastAPI student endpoints."""
+import os
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -9,15 +10,19 @@ from oops_student_manager.api import app
 from oops_student_manager.database import Base, get_db
 
 
-@pytest.fixture
-def client():
-    test_engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+def make_test_engine():
+    database_url = os.getenv("TEST_DATABASE_URL", "sqlite://")
+    engine_options = {}
+    if database_url.startswith("sqlite"):
+        engine_options = {
+            "connect_args": {"check_same_thread": False},
+            "poolclass": StaticPool,
+        }
+    return create_engine(database_url, **engine_options)
+
+
+def override_database(test_engine):
     TestingSessionLocal = sessionmaker(bind=test_engine, autoflush=False, autocommit=False)
-    Base.metadata.create_all(bind=test_engine)
 
     def override_get_db():
         db = TestingSessionLocal()
@@ -26,12 +31,28 @@ def client():
         finally:
             db.close()
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=test_engine)
-    test_engine.dispose()
+    return override_get_db
+
+
+def test_client_fixture():
+    """Keep the fixture factory explicit for pytest's fixture discovery."""
+
+
+import pytest
+
+
+@pytest.fixture
+def client():
+    test_engine = make_test_engine()
+    Base.metadata.create_all(bind=test_engine)
+    app.dependency_overrides[get_db] = override_database(test_engine)
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        Base.metadata.drop_all(bind=test_engine)
+        test_engine.dispose()
 
 
 def test_root_and_health(client):
@@ -132,7 +153,6 @@ def test_student_data_survives_new_request_session(client):
         "marks": 88,
     }
     assert client.post("/students", json=payload).status_code == 201
-    # A separate HTTP request receives a fresh SQLAlchemy session.
     assert client.get("/students/777").json()["name"] == "Persistent Student"
 
 
