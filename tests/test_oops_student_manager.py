@@ -1,4 +1,6 @@
 """Tests for the OOP Student Management package."""
+import os
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -15,14 +17,23 @@ def make_student(roll_no: int = 1, marks: float = 85) -> Student:
 
 @pytest.fixture
 def service():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(bind=engine)
+    database_url = os.getenv("TEST_DATABASE_URL", "sqlite://")
+    engine_options = {}
+    if database_url.startswith("sqlite"):
+        engine_options = {
+            "connect_args": {"check_same_thread": False},
+            "poolclass": StaticPool,
+        }
+    test_engine = create_engine(database_url, **engine_options)
+    Base.metadata.create_all(bind=test_engine)
+    SessionLocal = sessionmaker(bind=test_engine)
     db = SessionLocal()
-    yield StudentService(db)
-    db.close()
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+    try:
+        yield StudentService(db)
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=test_engine)
+        test_engine.dispose()
 
 
 def test_person_is_abstract():
@@ -85,12 +96,6 @@ def test_student_validates_constructor_fields():
 
 
 def test_sqlite_data_survives_engine_restart(tmp_path):
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    from oops_student_manager.database import Base
-    from oops_student_manager.services import StudentService
-
     database_file = tmp_path / "persistence_test.db"
     database_url = f"sqlite:///{database_file}"
 
