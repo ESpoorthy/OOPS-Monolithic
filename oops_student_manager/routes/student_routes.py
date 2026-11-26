@@ -2,14 +2,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from oops_student_manager.database import Base, engine, get_db
-from oops_student_manager.db_models import StudentRecord
+from oops_student_manager.database import get_db
 from oops_student_manager.models import GraduateStudent, Student
 from oops_student_manager.schemas import StudentCreate, StudentMarksUpdate, StudentResponse
 from oops_student_manager.services import StudentService
-
-# Create the SQLite table when the application starts/imports.
-Base.metadata.create_all(bind=engine)
 
 router = APIRouter(prefix="/students", tags=["Students"])
 
